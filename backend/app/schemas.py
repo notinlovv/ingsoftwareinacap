@@ -1,6 +1,8 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List
 from datetime import datetime
+from typing import Any, Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
+
 
 # --- Esquemas de Usuario ---
 class UsuarioBase(BaseModel):
@@ -38,26 +40,59 @@ class LineaFondeoBase(BaseModel):
 class LineaFondeoCreate(LineaFondeoBase):
     pass
 
+
+class LineaFondeoUpdate(BaseModel):
+    nombre: str | None = Field(default=None, min_length=1)
+    metros_totales: float | None = Field(default=None, gt=0)
+    fecha_inicio: datetime | None = None
+    fecha_meta: datetime | None = None
+    estado: str | None = None
+
+
 class LineaFondeoResponse(LineaFondeoBase):
     id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Esquemas de Archivo Adjunto ---
+class ArchivoBase(BaseModel):
+    ruta: str
+    tipo: str | None = None
+    tamano: int | None = Field(
+        default=None, ge=0, description="Tamaño del archivo en bytes"
+    )
+
+
+class ArchivoCreate(ArchivoBase):
+    registro_id: str = Field(..., min_length=36, max_length=36)
+
+
+class ArchivoResponse(ArchivoBase):
+    id: int
+    registro_id: str
+
+    model_config = ConfigDict(from_attributes=True)
+
 
 # --- Esquemas de Registro de Avance ---
 class RegistroAvanceBase(BaseModel):
     linea_id: int
-    metros_avanzados: float = Field(..., ge=0, description="Los metros no pueden ser negativos")
+    metros_avanzados: float = Field(
+        ..., ge=0, description="Los metros no pueden ser negativos"
+    )
     fecha: datetime
-    latitud: Optional[float] = None
-    longitud: Optional[float] = None
+    latitud: float | None = None
+    longitud: float | None = None
     estado: str = "pendiente"
-    observacion: Optional[str] = None
+    observacion: str | None = None
+
 
 class RegistroAvanceCreate(RegistroAvanceBase):
-    # El ID (UUID) es requerido aquí porque se genera en la app móvil offline
+    # El ID (UUID) es requerido porque se genera en la app móvil offline
     id: str = Field(..., min_length=36, max_length=36)
-    version_esquema: Optional[int] = 1
+    version_esquema: int | None = 1
+
 
 class RegistroAvanceResponse(RegistroAvanceBase):
     id: str
@@ -65,17 +100,37 @@ class RegistroAvanceResponse(RegistroAvanceBase):
     creado_en: datetime
     sincronizado_en: datetime
     version_esquema: int
+    archivos: list[ArchivoResponse] | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-# --- Esquemas de Archivo ---
-class ArchivoResponse(BaseModel):
+
+# --- Esquemas de Auditoría ---
+class AuditoriaResponse(BaseModel):
     id: int
-    registro_id: str
-    ruta: str
-    tipo: str
-    tamano: int
+    entidad: str
+    entidad_id: str
+    usuario_id: int | None = None
+    accion: str
+    valores_antes: dict[str, Any] | None = None
+    valores_despues: dict[str, Any] | None = None
+    fecha: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Esquemas de Dashboard ---
+class DashboardResumenResponse(BaseModel):
+    linea_id: int
+    linea_nombre: str
+    metros_totales: float
+    metros_acumulados: float
+    porcentaje_avance: float
+    metros_restantes: float
+    promedio_diario_ultimos_7_dias: float
+    dias_estimados_termino: float | None = None
+    fecha_estimada_termino: datetime | None = None
+    estado: str
+    alerta_atraso: bool
+
+    model_config = ConfigDict(from_attributes=True)
